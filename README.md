@@ -1,5 +1,11 @@
 # Broker Monitor
 
+![GitHub repo size](https://img.shields.io/github/repo-size/LeonardoMarconi/Protheus-Monitor-Broker?style=for-the-badge)
+![GitHub language count](https://img.shields.io/github/languages/count/LeonardoMarconi/Protheus-Monitor-Broker?style=for-the-badge)
+![GitHub forks](https://img.shields.io/github/forks/LeonardoMarconi/Protheus-Monitor-Broker?style=for-the-badge)
+![Bitbucket open issues](https://img.shields.io/bitbucket/issues/LeonardoMarconi/Protheus-Monitor-Broker?style=for-the-badge)
+![Bitbucket open pull requests](https://img.shields.io/bitbucket/pr-raw/LeonardoMarconi/Protheus-Monitor-Broker?style=for-the-badge)
+
 Painel web para **monitoramento de Brokers TOTVS**, permitindo consultar informações de servidores, conexões, usuários, threads, consumo de memória, CPU e demais informações disponibilizadas pelos endpoints HTTP do Broker.
 
 O projeto é composto por um **proxy HTTP local em Python** e uma **interface web HTML/JavaScript**, permitindo que o navegador consulte Brokers TOTVS localizados na rede privada.
