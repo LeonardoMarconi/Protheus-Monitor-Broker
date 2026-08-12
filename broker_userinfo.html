@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>Broker Monitor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.47.0/iconfont/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f1f3f6; --surface:#ffffff; --surface-2:#f7f8fa; --border:#e3e6ea;
+    --text:#2b2f38; --muted:#7c8494; --sidebar-bg:#1c2434; --sidebar-text:#aeb4c0;
+    --sidebar-active:#2d3648; --primary:#3f51b5; --primary-dark:#303f9f;
+    --green:#2e7d32; --green-bg:#e8f5e9; --amber:#ef6c00; --amber-bg:#fff3e0;
+    --red:#c62828; --red-bg:#fdecea; --blue-bg:#e8eaf6;
+    --shadow:0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  }
+  [data-theme="dark"]{
+    --bg:#151a24; --surface:#1e2431; --surface-2:#242b3a; --border:#2e3646;
+    --text:#e4e7ec; --muted:#8b93a5; --sidebar-bg:#11151d; --sidebar-text:#8b93a5;
+    --sidebar-active:#242b3a; --primary:#5c6bc0; --primary-dark:#7986cb;
+    --green:#66bb6a; --green-bg:rgba(102,187,106,.12); --amber:#ffa726; --amber-bg:rgba(255,167,38,.12);
+    --red:#ef5350; --red-bg:rgba(239,83,80,.12); --blue-bg:rgba(92,107,192,.15);
+    --shadow:0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Roboto',-apple-system,Segoe UI,Arial,sans-serif; font-size:14px; min-height:100vh;}
+
+  .topheader{background:var(--surface); border-bottom:1px solid var(--border);}
+  .topheader-inner{display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:56px;}
+  .brand{display:flex; align-items:center; gap:10px; color:var(--text); font-size:16px; font-weight:500;}
+  .brand i{font-size:22px; color:var(--primary);}
+  .topheader .right{display:flex; align-items:center; gap:10px;}
+  .icon-btn{width:36px; height:36px; border-radius:50%; border:none; background:transparent; color:var(--muted); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px;}
+  .icon-btn:hover{background:var(--surface-2); color:var(--text);}
+
+  .tabsbar{display:flex; align-items:center; gap:2px; padding:0 16px; overflow-x:auto; background:var(--surface-2); border-bottom:1px solid var(--border);}
+  .tabitem{display:flex; align-items:center; gap:8px; padding:11px 16px; color:var(--muted); font-size:13.5px; cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap; flex-shrink:0;}
+  .tabitem i:first-child{font-size:15px;}
+  .tabitem.active{color:var(--primary); border-bottom-color:var(--primary); font-weight:500;}
+  .tabitem:hover{color:var(--text);}
+  .tabitem .del{opacity:0; font-size:13px; margin-left:2px;}
+  .tabitem:hover .del{opacity:.6;}
+  .tabitem .del:hover{opacity:1; color:var(--red);}
+  .tabadd{display:flex; align-items:center; gap:6px; padding:0 14px; height:36px; margin:9px 0 9px 8px; border-radius:6px; border:1px dashed var(--border); color:var(--primary); cursor:pointer; flex-shrink:0; font-size:13px; font-weight:500; white-space:nowrap;}
+  .tabadd:hover{background:var(--blue-bg); border-color:var(--primary);}
+  .tabadd::before{content:"+"; font-size:16px; line-height:1;}
+
+  .main{display:flex; flex-direction:column; min-width:0;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; height:44px; flex-shrink:0;}
+  .topbar h1{font-size:13.5px; font-weight:400; color:var(--muted); margin:0;}
+  .topbar .right{display:flex; align-items:center; gap:10px;}
+
+  .content{padding:22px 24px; overflow-x:hidden;}
+
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px;}
+  input,select{background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:9px 12px; font-size:13px; font-family:inherit;}
+  input:focus,select:focus{outline:none; border-color:var(--primary);}
+  .btn{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:6px; padding:9px 14px; font-size:13px; cursor:pointer; font-family:inherit;}
+  .btn:hover{border-color:var(--primary);}
+  .btn.primary{background:var(--primary); border-color:var(--primary); color:#fff;}
+  .btn.primary:hover{background:var(--primary-dark);}
+
+  .card{background:var(--surface); border-radius:8px; box-shadow:var(--shadow); padding:16px 18px; margin-bottom:20px;}
+  .card-title{font-size:13px; font-weight:500; color:var(--muted); margin:0 0 14px; display:flex; align-items:center; gap:8px; text-transform:uppercase; letter-spacing:.3px;}
+  .card-title i{font-size:16px;}
+
+  .statgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:20px;}
+  .statcard{background:var(--surface); border-radius:8px; box-shadow:var(--shadow); padding:16px 18px; display:flex; align-items:center; gap:14px;}
+  .statcard .ic{width:44px; height:44px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;}
+  .statcard .n{font-size:22px; font-weight:500; line-height:1.1;}
+  .statcard .l{font-size:12px; color:var(--muted); margin-top:2px;}
+  .ic.blue{background:var(--blue-bg); color:var(--primary);}
+  .ic.green{background:var(--green-bg); color:var(--green);}
+  .ic.amber{background:var(--amber-bg); color:var(--amber);}
+  .ic.red{background:var(--red-bg); color:var(--red);}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th{text-align:left; color:var(--muted); font-weight:500; font-size:11.5px; text-transform:uppercase; letter-spacing:.3px; padding:10px 12px; border-bottom:2px solid var(--border); cursor:pointer; white-space:nowrap;}
+  th i{font-size:13px; margin-right:5px; opacity:.7;}
+  td{padding:10px 12px; border-bottom:1px solid var(--border); white-space:nowrap; color:var(--text);}
+  tr:hover td{background:var(--surface-2);}
+  td.remark{white-space:normal; max-width:340px; color:var(--muted);}
+  .wrap{overflow-x:auto;}
+
+  .chip{display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:500;}
+  .chip.job{background:var(--blue-bg); color:var(--primary);}
+  .chip.client{background:var(--green-bg); color:var(--green);}
+  .chip.ok{background:var(--green-bg); color:var(--green);}
+  .chip.warn{background:var(--amber-bg); color:var(--amber);}
+  .chip.off{background:var(--red-bg); color:var(--red);}
+  .chip i{font-size:12px;}
+
+  .dot{width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:7px;}
+  .dot.active{background:var(--green);}
+  .dot.idle{background:var(--amber);}
+
+  .legend{display:flex; flex-wrap:wrap; gap:16px; font-size:12px; color:var(--muted);}
+  .legend .item{display:flex; align-items:center; gap:6px;}
+  .legend strong{color:var(--text); font-weight:500;}
+
+  #status{font-size:12px; color:var(--muted);}
+  #err{background:var(--red-bg); color:var(--red); border-radius:6px; padding:10px 14px; font-size:13px; margin-bottom:16px; display:none;}
+
+  .empty-state{text-align:center; padding:60px 20px; color:var(--muted);}
+  .empty-state i{font-size:40px; opacity:.5; margin-bottom:12px; display:block;}
+
+  .modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:100;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--surface); border-radius:10px; padding:22px 24px; width:380px; box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  .modal h2{font-size:15px; margin:0 0 16px; display:flex; align-items:center; gap:8px;}
+  .modal label{font-size:12px; color:var(--muted); display:block; margin-bottom:5px; margin-top:12px;}
+  .modal input{width:100%;}
+  .modal .actions{display:flex; justify-content:flex-end; gap:8px; margin-top:20px;}
+  .hint{font-size:11px; color:var(--muted); margin-top:4px;}
+
+  .manage-row{display:flex; align-items:center; gap:10px; padding:10px 8px; border-bottom:1px solid var(--border);}
+  .manage-row:last-child{border-bottom:none;}
+  .manage-row .info{flex:1; min-width:0;}
+  .manage-row .name{font-size:13.5px; font-weight:500;}
+  .manage-row .host{font-size:11.5px; color:var(--muted);}
+  .manage-row .row-actions{display:flex; gap:4px; flex-shrink:0;}
+  .manage-row .icon-btn{width:32px; height:32px; font-size:15px;}
+  .manage-row .icon-btn:hover.danger{color:var(--red);}
+</style>
+</head>
+<body>
+
+<div class="topheader">
+  <div class="topheader-inner">
+    <div class="brand"><i class="ti ti-server-2"></i> Broker Monitor</div>
+    <div class="right">
+      <span id="status">Selecione ou adicione um broker.</span>
+      <button class="btn" id="settingsNav" title="Gerenciar brokers"><i class="ti ti-settings"></i> Gerenciar brokers</button>
+      <button class="icon-btn" id="themeBtn" title="Alternar tema">🌙</button>
+    </div>
+  </div>
+  <div class="tabsbar" id="brokerNav"></div>
+</div>
+
+<div class="main">
+  <div class="content" id="contentArea">
+    <!-- preenchido via JS -->
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h2><i class="ti ti-server-2"></i> <span id="modalTitle">Adicionar broker</span></h2>
+    <input type="hidden" id="editId">
+    <label>Nome de exibição</label>
+    <input id="brokerLabel" placeholder="Ex: Matriz Porto Ferreira">
+    <label>Endereço (IP:porta)</label>
+    <input id="brokerHost" placeholder="Ex: 192.168.XXX.XXX:XXXX">
+    <div class="hint">Aponta para o broker Totvs na porta do serviço HTTP.</div>
+    <div class="actions">
+      <button class="btn" id="cancelModalBtn">Cancelar</button>
+      <button class="btn primary" id="saveModalBtn"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="manageBackdrop">
+  <div class="modal" style="width:460px;">
+    <h2><i class="ti ti-settings"></i> Gerenciar brokers</h2>
+    <div id="manageList" style="max-height:320px; overflow-y:auto; margin-top:6px;"></div>
+    <div class="actions" style="justify-content:space-between; margin-top:18px;">
+      <button class="btn" id="addFromManageBtn"><i class="ti ti-plus"></i> Adicionar novo</button>
+      <button class="btn primary" id="closeManageBtn">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PROXY_BASE = window.location.protocol === 'file:' ? "http://localhost:[porta do Proxy]" : window.location.origin;
+const STORAGE_KEY = "brokerMonitor.brokers.v1";
+const THEME_KEY = "brokerMonitor.theme.v1";
+
+let brokers = [];
+let activeId = null;
+let autoTimer = null;
+let sortState = {};
+
+function loadBrokers(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    brokers = raw ? JSON.parse(raw) : [];
+  }catch(e){ brokers = []; }
+  if(brokers.length === 0){
+    brokers = [];
+    saveBrokers();
+  }
+}
+function saveBrokers(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(brokers));
+}
+function uid(){ return 'b' + Math.random().toString(36).slice(2,9); }
+
+function renderNav(){
+  const nav = document.getElementById('brokerNav');
+  nav.innerHTML = brokers.map(b => `
+    <div class="tabitem ${b.id===activeId?'active':''}" data-id="${b.id}">
+      <i class="ti ti-server"></i> ${esc(b.label)}
+      <i class="ti ti-x del" data-del="${b.id}"></i>
+    </div>
+  `).join('') + `<div class="tabadd" id="addBrokerBtn" title="Adicionar broker">Novo broker</div>`;
+  nav.querySelectorAll('.tabitem').forEach(el=>{
+    el.addEventListener('click', (ev)=>{
+      if(ev.target.dataset.del) return;
+      setActive(el.dataset.id);
+    });
+  });
+  nav.querySelectorAll('[data-del]').forEach(el=>{
+    el.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      removeBroker(el.dataset.del);
+    });
+  });
+  document.getElementById('addBrokerBtn').addEventListener('click', ()=>openModal());
+}
+
+function setActive(id){
+  activeId = id;
+  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+  renderNav();
+  buildContentSkeleton();
+  fetchActive();
+}
+
+function removeBroker(id){
+  const b = brokers.find(x=>x.id===id);
+  if(!confirm(`Remover o broker "${b?.label}" da lista?`)) return;
+  brokers = brokers.filter(x=>x.id!==id);
+  saveBrokers();
+  if(activeId === id){
+    activeId = brokers[0]?.id || null;
+  }
+  renderNav();
+  if(activeId) { buildContentSkeleton(); fetchActive(); }
+  else { renderEmptyState(); }
+}
+
+function renderEmptyState(){
+  document.getElementById('status').textContent = "Nenhum broker cadastrado.";
+  document.getElementById('contentArea').innerHTML = `
+    <div class="empty-state">
+      <i class="ti ti-server-off"></i>
+      <div>Nenhum broker cadastrado ainda.</div>
+      <button class="btn primary" style="margin-top:14px;" onclick="openModal()"><i class="ti ti-plus"></i> Adicionar broker</button>
+    </div>`;
+}
+
+function buildContentSkeleton(){
+  document.getElementById('contentArea').innerHTML = `
+    <div id="err"></div>
+    <div class="toolbar">
+      <button class="btn primary" id="refreshBtn"><i class="ti ti-refresh"></i> Atualizar agora</button>
+      <button class="btn" id="autoBtn"><i class="ti ti-player-play"></i> Auto-refresh: OFF</button>
+      <select id="intervalSel">
+        <option value="5000">5s</option>
+        <option value="10000" selected>10s</option>
+        <option value="30000">30s</option>
+        <option value="60000">60s</option>
+      </select>
+      <input id="search" placeholder="Filtrar por usuário, host, função, ambiente..." style="flex:1; min-width:200px;">
+      <select id="typeFilter">
+        <option value="">Todos os tipos</option>
+        <option value="SmartClient QT Windows (10.1.8.0)">SmartClient</option>
+        <option value="JobThread">JobThread</option>
+        <option value="IPCJobThread">IPCJobThread</option>
+      </select>
+    </div>
+
+    <div class="statgrid" id="brokerStats"></div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-server"></i> Servidores do cluster</div>
+      <div class="wrap">
+      <table id="serversTbl">
+        <thead><tr>
+          <th><i class="ti ti-server"></i>Servidor</th>
+          <th><i class="ti ti-activity"></i>Status</th>
+          <th><i class="ti ti-plug"></i>Conexões</th>
+          <th><i class="ti ti-users"></i>Usuários</th>
+          <th><i class="ti ti-git-branch"></i>Threads</th>
+          <th><i class="ti ti-database"></i>Memória</th>
+          <th><i class="ti ti-gauge"></i>CPU</th>
+          <th><i class="ti ti-clock"></i>Uptime</th>
+          <th>PID</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="statgrid" id="stats"></div>
+
+    <div class="card">
+      <div class="card-title"><i class="ti ti-users"></i> Usuários conectados</div>
+      <div class="wrap">
+      <table id="tbl">
+        <thead><tr>
+          <th data-k="user"><i class="ti ti-user"></i>Usuário</th>
+          <th data-k="local_host"><i class="ti ti-device-desktop"></i>Host</th>
+          <th data-k="function"><i class="ti ti-code"></i>Função</th>
+          <th data-k="environment"><i class="ti ti-building"></i>Ambiente</th>
+          <th data-k="thread_type"><i class="ti ti-category"></i>Tipo</th>
+          <th data-k="connection_date_time"><i class="ti ti-calendar"></i>Conectado em</th>
+          <th data-k="uptime"><i class="ti ti-clock"></i>Uptime</th>
+          <th data-k="idle_time_info"><i class="ti ti-hourglass"></i>Ocioso</th>
+          <th data-k="instructions_per_sec"><i class="ti ti-bolt"></i>Instr/s</th>
+          <th>Detalhe</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('refreshBtn').addEventListener('click', fetchActive);
+  document.getElementById('search').addEventListener('input', renderUsers);
+  document.getElementById('typeFilter').addEventListener('change', renderUsers);
+  document.querySelectorAll('#tbl th[data-k]').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.k;
+      if(sortState.key===k) sortState.asc=!sortState.asc; else sortState={key:k, asc:true};
+      renderUsers();
+    });
+  });
+  document.getElementById('autoBtn').addEventListener('click', function(){
+    if(autoTimer){
+      clearInterval(autoTimer); autoTimer=null;
+      this.innerHTML = '<i class="ti ti-player-play"></i> Auto-refresh: OFF';
+      this.classList.remove('primary');
+    }else{
+      const interval = parseInt(document.getElementById('intervalSel').value);
+      autoTimer = setInterval(fetchActive, interval);
+      this.innerHTML = '<i class="ti ti-player-pause"></i> Auto-refresh: ON';
+      this.classList.add('primary');
+    }
+  });
+  document.getElementById('intervalSel').addEventListener('change', function(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer=setInterval(fetchActive, parseInt(this.value)); }
+  });
+}
+
+let currentUserData = [];
+let currentBrokerData = null;
+
+async function fetchActive(){
+  const b = brokers.find(x=>x.id===activeId);
+  if(!b) return;
+  const statusEl = document.getElementById('status');
+  const errEl = document.getElementById('err');
+  statusEl.textContent = "Consultando " + b.host + " (" + b.label + ")...";
+  errEl.style.display = 'none';
+  try{
+    const target = encodeURIComponent(b.host);
+    const [userRes, brokerRes] = await Promise.all([
+      fetch(`${PROXY_BASE}/userinfo?target=${target}`, { cache: 'no-store' }),
+      fetch(`${PROXY_BASE}/brokerinfo?target=${target}`, { cache: 'no-store' })
+    ]);
+    if(!userRes.ok) throw new Error("userinfo HTTP " + userRes.status);
+    if(!brokerRes.ok) throw new Error("brokerinfo HTTP " + brokerRes.status);
+    const json = await userRes.json();
+    currentBrokerData = await brokerRes.json();
+    currentUserData = json.user_info || [];
+    statusEl.textContent = b.label + " · atualizado " + new Date().toLocaleTimeString('pt-BR') + " · v" + json.version;
+    renderUsers();
+    renderServers();
+  }catch(e){
+    errEl.style.display = 'block';
+    errEl.innerHTML = '<i class="ti ti-alert-circle"></i> Falha ao consultar <strong>' + esc(b.host) + '</strong>: ' + e.message +
+      '. Verifique se o proxy local (broker_proxy.py) está rodando e se este broker está acessível na rede.';
+    statusEl.textContent = "Erro na última tentativa.";
+  }
+}
+
+function renderServers(){
+  if(!currentBrokerData) return;
+  const servers = currentBrokerData.servers || [];
+  const totalMem = servers.reduce((s,x)=>s+parseInt(x.memory||0),0);
+  const avgCpu = servers.length ? Math.round(servers.reduce((s,x)=>s+parseInt(x.cpu||0),0)/servers.length) : 0;
+
+  document.getElementById('brokerStats').innerHTML = `
+    <div class="statcard"><div class="ic blue"><p class="ti ti-server-2">📡</p></div><div><div class="n">${servers.length}</div><div class="l">Servidores no cluster</div></div></div>
+    <div class="statcard"><div class="ic blue"><p class="ti ti-plug">💻</p></div><div><div class="n">${currentBrokerData.total?.connections ?? '-'}</div><div class="l">Conexões (broker)</div></div></div>
+    <div class="statcard"><div class="ic green"><p class="ti ti-users">👨‍💻</p></div><div><div class="n">${currentBrokerData.total?.users ?? '-'}</div><div class="l">Usuários (broker)</div></div></div>
+    <div class="statcard"><div class="ic amber"><p class="ti ti-database">📈</p></div><div><div class="n">${(totalMem/1024/1024).toFixed(1)} GB</div><div class="l">Memória total</div></div></div>
+    <div class="statcard"><div class="ic ${avgCpu>70?'red':'green'}"><p  class="ti ti-gauge">📊</p></div><div><div class="n">${avgCpu}%</div><div class="l">CPU média</div></div></div>
+  `;
+
+  const tbody = document.querySelector('#serversTbl tbody');
+  tbody.innerHTML = servers.map(s=>{
+    let badge='ok', label='ativo', icon='ti-circle-check';
+    if(s.disabled === '1'){ badge='off'; label='desabilitado'; icon='ti-circle-x'; }
+    else if(s.quarantine && s.quarantine !== '-'){ badge='warn'; label='quarentena'; icon='ti-alert-triangle'; }
+    else if(s.standby === '1'){ badge='warn'; label='standby'; icon='ti-player-pause'; }
+    const memGB = (parseInt(s.memory||0)/1024/1024).toFixed(2);
+    return `<tr>
+      <td><i class="ti ti-server" style="margin-right:5px; color:var(--muted);"></i>${esc(s.server)}</td>
+      <td><span class="chip ${badge}"><i class="ti ${icon}"></i>${label}</span></td>
+      <td>${esc(s.connections)}</td>
+      <td>${esc(s.users)}</td>
+      <td>${esc(s.threads)}</td>
+      <td>${memGB} GB</td>
+      <td>${esc(s.cpu)}%</td>
+      <td>${esc(s.uptime)}</td>
+      <td>${esc(s.pid)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center; color:var(--muted); padding:20px;">Sem dados de servidores.</td></tr>';
+}
+
+function renderUsers(){
+  const searchEl = document.getElementById('search');
+  const typeEl = document.getElementById('typeFilter');
+  if(!searchEl) return;
+  const q = searchEl.value.toLowerCase();
+  const typeF = typeEl.value;
+  let rows = currentUserData.filter(r=>{
+    const hay = [r.user, r.local_host, r.function, r.environment, r.remark].join(' ').toLowerCase();
+    return (!q || hay.includes(q)) && (!typeF || r.thread_type === typeF);
+  });
+
+  if(sortState.key){
+    rows.sort((a,b)=>{
+      let va=a[sortState.key], vb=b[sortState.key];
+      if(typeof va==='string') va=va.toLowerCase();
+      if(typeof vb==='string') vb=vb.toLowerCase();
+      if(va<vb) return sortState.asc?-1:1;
+      if(va>vb) return sortState.asc?1:-1;
+      return 0;
+    });
+  }
+
+  const jobCount = currentUserData.filter(r=>r.thread_type.includes('Job')).length;
+  const clientCount = currentUserData.filter(r=>r.thread_type.includes('SmartClient')).length;
+  const envs = new Set(currentUserData.map(r=>r.environment)).size;
+
+  document.getElementById('stats').innerHTML = `
+    <div class="statcard"><div class="ic blue"><p class="ti ti-plug">🖥️</p></div><div><div class="n">${currentUserData.length}</div><div class="l">Conexões totais</div></div></div>
+    <div class="statcard"><div class="ic green"><p class="ti ti-user">📳</p></div><div><div class="n">${clientCount}</div><div class="l">SmartClient</div></div></div>
+    <div class="statcard"><div class="ic blue"><p class="ti ti-cpu">⚙️</p></div><div><div class="n">${jobCount}</div><div class="l">Jobs/Threads</div></div></div>
+    <div class="statcard"><div class="ic amber"><p class="ti ti-building">📍</p></div><div><div class="n">${envs}</div><div class="l">Ambientes</div></div></div>
+  `;
+
+  const tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = rows.map(r=>{
+    const isJob = r.thread_type.includes('Job');
+    const idleMinutes = parseIdle(r.idle_time_info);
+    const statusClass = idleMinutes !== null && idleMinutes > 30 ? 'idle' : 'active';
+    const typeIcon = isJob ? 'ti-cpu' : 'ti-user';
+    return `<tr>
+      <td><span class="dot ${statusClass}"></span>${esc(r.user)}</td>
+      <td>${esc(r.local_host)}</td>
+      <td>${esc(r.function)}</td>
+      <td>${esc(r.environment)}</td>
+      <td><span class="chip ${isJob?'job':'client'}"><i class="ti ${typeIcon}"></i>${esc(r.thread_type.split(' ')[0])}</span></td>
+      <td>${esc(r.connection_date_time)}</td>
+      <td>${esc(r.uptime)}</td>
+      <td>${esc(r.idle_time_info || '-')}</td>
+      <td>${r.instructions_per_sec}</td>
+      <td class="remark">${esc(r.remark)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center; color:var(--muted); padding:20px;">Nenhum registro encontrado.</td></tr>';
+}
+
+function parseIdle(s){
+  if(!s) return null;
+  const m = s.match(/(\d+):(\d+):(\d+)/);
+  if(!m) return null;
+  return parseInt(m[1])*60 + parseInt(m[2]);
+}
+function esc(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// ---- Modal de cadastro ----
+const modalBackdrop = document.getElementById('modalBackdrop');
+const manageBackdrop = document.getElementById('manageBackdrop');
+
+function openManageModal(){
+  renderManageList();
+  manageBackdrop.classList.add('open');
+}
+function closeManageModal(){ manageBackdrop.classList.remove('open'); }
+
+function renderManageList(){
+  const list = document.getElementById('manageList');
+  if(brokers.length === 0){
+    list.innerHTML = `<div class="hint" style="padding:16px 8px;">Nenhum broker cadastrado ainda.</div>`;
+    return;
+  }
+  list.innerHTML = brokers.map(b => `
+    <div class="manage-row">
+      <div class="info">
+        <div class="name">${esc(b.label)}</div>
+        <div class="host">${esc(b.host)}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn" style="padding:6px 10px; font-size:12px;" data-edit="${b.id}" title="Editar">Editar</button>
+        <button class="btn" style="padding:6px 10px; font-size:12px; color:var(--red); border-color:var(--red-bg);" data-remove="${b.id}" title="Remover">Remover</button>
+      </div>
+    </div>
+  `).join('');
+  list.querySelectorAll('[data-edit]').forEach(el=>{
+    el.addEventListener('click', ()=>{ closeManageModal(); openModal(el.dataset.edit); });
+  });
+  list.querySelectorAll('[data-remove]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      removeBroker(el.dataset.remove);
+      renderManageList();
+    });
+  });
+}
+
+document.getElementById('addFromManageBtn').addEventListener('click', ()=>{ closeManageModal(); openModal(); });
+document.getElementById('closeManageBtn').addEventListener('click', closeManageModal);
+manageBackdrop.addEventListener('click', (e)=>{ if(e.target===manageBackdrop) closeManageModal(); });
+
+function openModal(editingId){
+  document.getElementById('modalTitle').textContent = editingId ? "Editar broker" : "Adicionar broker";
+  document.getElementById('editId').value = editingId || '';
+  if(editingId){
+    const b = brokers.find(x=>x.id===editingId);
+    document.getElementById('brokerLabel').value = b.label;
+    document.getElementById('brokerHost').value = b.host;
+  }else{
+    document.getElementById('brokerLabel').value = '';
+    document.getElementById('brokerHost').value = '';
+  }
+  modalBackdrop.classList.add('open');
+}
+function closeModal(){ modalBackdrop.classList.remove('open'); }
+
+document.getElementById('settingsNav').addEventListener('click', openManageModal);
+document.getElementById('cancelModalBtn').addEventListener('click', closeModal);
+modalBackdrop.addEventListener('click', (e)=>{ if(e.target===modalBackdrop) closeModal(); });
+
+document.getElementById('saveModalBtn').addEventListener('click', ()=>{
+  const label = document.getElementById('brokerLabel').value.trim();
+  const host = document.getElementById('brokerHost').value.trim();
+  const editId = document.getElementById('editId').value;
+  if(!label || !host){ alert("Preencha nome e endereço."); return; }
+  if(editId){
+    const b = brokers.find(x=>x.id===editId);
+    b.label = label; b.host = host;
+  }else{
+    const newB = { id: uid(), label, host };
+    brokers.push(newB);
+    activeId = newB.id;
+  }
+  saveBrokers();
+  closeModal();
+  renderNav();
+  buildContentSkeleton();
+  fetchActive();
+});
+
+// ---- Tema ----
+const root = document.documentElement;
+const themeBtn = document.getElementById('themeBtn');
+function applyTheme(t){
+  root.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem(THEME_KEY, t);
+}
+let currentTheme = localStorage.getItem(THEME_KEY) || 'dark';
+applyTheme(currentTheme);
+themeBtn.addEventListener('click', ()=>{
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  applyTheme(currentTheme);
+});
+
+// ---- Init ----
+loadBrokers();
+activeId = brokers[0]?.id || null;
+renderNav();
+if(activeId){ buildContentSkeleton(); fetchActive(); } else { renderEmptyState(); }
+</script>
+</body>
+</html>
