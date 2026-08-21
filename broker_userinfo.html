@@ -172,14 +172,16 @@
 </div>
 
 <script>
-const PROXY_BASE = window.location.protocol === 'file:' ? "http://localhost:[porta do Proxy]" : window.location.origin;
+const PROXY_BASE = window.location.protocol === 'file:' ? "http://localhost:[coloque a porta definida do Proxy aqui]" : window.location.origin;
 const STORAGE_KEY = "brokerMonitor.brokers.v1";
 const THEME_KEY = "brokerMonitor.theme.v1";
 
 let brokers = [];
 let activeId = null;
 let autoTimer = null;
+let autoRefreshOn = false;
 let sortState = {};
+let dataCache = {}; // { [brokerId]: { userData, brokerData, version, status: 'ok'|'error'|'pending', lastUpdated, errorMsg } }
 
 function loadBrokers(){
   try{
@@ -198,12 +200,16 @@ function uid(){ return 'b' + Math.random().toString(36).slice(2,9); }
 
 function renderNav(){
   const nav = document.getElementById('brokerNav');
-  nav.innerHTML = brokers.map(b => `
+  nav.innerHTML = brokers.map(b => {
+    const st = dataCache[b.id]?.status;
+    const dotColor = st === 'ok' ? 'var(--green)' : st === 'error' ? 'var(--red)' : 'var(--border)';
+    return `
     <div class="tabitem ${b.id===activeId?'active':''}" data-id="${b.id}">
-      <i class="ti ti-server"></i> ${esc(b.label)}
+      <span class="dot" style="background:${dotColor}; margin-right:2px;"></span>${esc(b.label)}
       <i class="ti ti-x del" data-del="${b.id}"></i>
     </div>
-  `).join('') + `<div class="tabadd" id="addBrokerBtn" title="Adicionar broker">Novo broker</div>`;
+  `;
+  }).join('') + `<div class="tabadd" id="addBrokerBtn" title="Adicionar broker">Novo broker</div>`;
   nav.querySelectorAll('.tabitem').forEach(el=>{
     el.addEventListener('click', (ev)=>{
       if(ev.target.dataset.del) return;
@@ -221,22 +227,26 @@ function renderNav(){
 
 function setActive(id){
   activeId = id;
-  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
   renderNav();
   buildContentSkeleton();
-  fetchActive();
+  const cached = dataCache[id];
+  if(cached && cached.status !== 'pending'){
+    renderFromCache(id);
+  }
+  fetchBrokerData(id);
 }
 
 function removeBroker(id){
   const b = brokers.find(x=>x.id===id);
   if(!confirm(`Remover o broker "${b?.label}" da lista?`)) return;
   brokers = brokers.filter(x=>x.id!==id);
+  delete dataCache[id];
   saveBrokers();
   if(activeId === id){
     activeId = brokers[0]?.id || null;
   }
   renderNav();
-  if(activeId) { buildContentSkeleton(); fetchActive(); }
+  if(activeId) { setActive(activeId); }
   else { renderEmptyState(); }
 }
 
@@ -317,7 +327,7 @@ function buildContentSkeleton(){
     </div>
   `;
 
-  document.getElementById('refreshBtn').addEventListener('click', fetchActive);
+  document.getElementById('refreshBtn').addEventListener('click', ()=>fetchBrokerData(activeId));
   document.getElementById('search').addEventListener('input', renderUsers);
   document.getElementById('typeFilter').addEventListener('change', renderUsers);
   document.querySelectorAll('#tbl th[data-k]').forEach(th=>{
@@ -327,33 +337,58 @@ function buildContentSkeleton(){
       renderUsers();
     });
   });
-  document.getElementById('autoBtn').addEventListener('click', function(){
-    if(autoTimer){
-      clearInterval(autoTimer); autoTimer=null;
-      this.innerHTML = '<i class="ti ti-player-play"></i> Auto-refresh: OFF';
-      this.classList.remove('primary');
-    }else{
-      const interval = parseInt(document.getElementById('intervalSel').value);
-      autoTimer = setInterval(fetchActive, interval);
-      this.innerHTML = '<i class="ti ti-player-pause"></i> Auto-refresh: ON';
-      this.classList.add('primary');
-    }
+
+  const autoBtn = document.getElementById('autoBtn');
+  const intervalSel = document.getElementById('intervalSel');
+  updateAutoBtnUI(autoBtn);
+  autoBtn.addEventListener('click', ()=>{ toggleAutoRefresh(); updateAutoBtnUI(autoBtn); });
+  intervalSel.addEventListener('change', function(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer=setInterval(fetchAllBrokers, parseInt(this.value)); }
   });
-  document.getElementById('intervalSel').addEventListener('change', function(){
-    if(autoTimer){ clearInterval(autoTimer); autoTimer=setInterval(fetchActive, parseInt(this.value)); }
-  });
+}
+
+function updateAutoBtnUI(btn){
+  if(!btn) return;
+  if(autoRefreshOn){
+    btn.innerHTML = '<i class="ti ti-player-pause"></i> Auto-refresh (todos): ON';
+    btn.classList.add('primary');
+  }else{
+    btn.innerHTML = '<i class="ti ti-player-play"></i> Auto-refresh (todos): OFF';
+    btn.classList.remove('primary');
+  }
+}
+
+function toggleAutoRefresh(){
+  autoRefreshOn = !autoRefreshOn;
+  if(autoRefreshOn){
+    const intervalSel = document.getElementById('intervalSel');
+    const interval = parseInt(intervalSel ? intervalSel.value : 10000);
+    fetchAllBrokers();
+    autoTimer = setInterval(fetchAllBrokers, interval);
+  }else{
+    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+  }
+}
+
+async function fetchAllBrokers(){
+  await Promise.all(brokers.map(b => fetchBrokerData(b.id)));
 }
 
 let currentUserData = [];
 let currentBrokerData = null;
 
-async function fetchActive(){
-  const b = brokers.find(x=>x.id===activeId);
+async function fetchBrokerData(id){
+  const b = brokers.find(x=>x.id===id);
   if(!b) return;
-  const statusEl = document.getElementById('status');
-  const errEl = document.getElementById('err');
-  statusEl.textContent = "Consultando " + b.host + " (" + b.label + ")...";
-  errEl.style.display = 'none';
+  const isActive = id === activeId;
+  if(isActive){
+    const statusEl = document.getElementById('status');
+    const errEl = document.getElementById('err');
+    if(statusEl) statusEl.textContent = "Consultando " + b.host + " (" + b.label + ")...";
+    if(errEl) errEl.style.display = 'none';
+  }
+  dataCache[id] = dataCache[id] || {};
+  dataCache[id].status = 'pending';
   try{
     const target = encodeURIComponent(b.host);
     const [userRes, brokerRes] = await Promise.all([
@@ -363,17 +398,55 @@ async function fetchActive(){
     if(!userRes.ok) throw new Error("userinfo HTTP " + userRes.status);
     if(!brokerRes.ok) throw new Error("brokerinfo HTTP " + brokerRes.status);
     const json = await userRes.json();
-    currentBrokerData = await brokerRes.json();
-    currentUserData = json.user_info || [];
-    statusEl.textContent = b.label + " · atualizado " + new Date().toLocaleTimeString('pt-BR') + " · v" + json.version;
-    renderUsers();
-    renderServers();
+    const brokerJson = await brokerRes.json();
+    dataCache[id] = {
+      status: 'ok',
+      userData: json.user_info || [],
+      brokerData: brokerJson,
+      version: json.version,
+      lastUpdated: new Date()
+    };
   }catch(e){
-    errEl.style.display = 'block';
-    errEl.innerHTML = '<i class="ti ti-alert-circle"></i> Falha ao consultar <strong>' + esc(b.host) + '</strong>: ' + e.message +
-      '. Verifique se o proxy local (broker_proxy.py) está rodando e se este broker está acessível na rede.';
-    statusEl.textContent = "Erro na última tentativa.";
+    dataCache[id] = { ...(dataCache[id]||{}), status: 'error', errorMsg: e.message, lastUpdated: new Date() };
   }
+  updateTabDot(id);
+  if(id === activeId){
+    renderFromCache(id);
+  }
+}
+
+function updateTabDot(id){
+  const nav = document.getElementById('brokerNav');
+  if(!nav) return;
+  const el = nav.querySelector(`.tabitem[data-id="${id}"] .dot`);
+  if(!el) return;
+  const st = dataCache[id]?.status;
+  el.style.background = st === 'ok' ? 'var(--green)' : st === 'error' ? 'var(--red)' : 'var(--border)';
+}
+
+function renderFromCache(id){
+  const b = brokers.find(x=>x.id===id);
+  const cache = dataCache[id];
+  const statusEl = document.getElementById('status');
+  const errEl = document.getElementById('err');
+  if(!cache || !b) return;
+
+  if(cache.status === 'error'){
+    if(errEl){
+      errEl.style.display = 'block';
+      errEl.innerHTML = '<i class="ti ti-alert-circle"></i> Falha ao consultar <strong>' + esc(b.host) + '</strong>: ' + esc(cache.errorMsg) +
+        '. Verifique se o proxy local (broker_proxy.py) está rodando e se este broker está acessível na rede.';
+    }
+    if(statusEl) statusEl.textContent = b.label + " · erro na última tentativa (" + new Date(cache.lastUpdated).toLocaleTimeString('pt-BR') + ")";
+    return;
+  }
+
+  if(errEl) errEl.style.display = 'none';
+  currentUserData = cache.userData || [];
+  currentBrokerData = cache.brokerData || null;
+  if(statusEl) statusEl.textContent = b.label + " · atualizado " + new Date(cache.lastUpdated).toLocaleTimeString('pt-BR') + " · v" + (cache.version || '?');
+  renderUsers();
+  renderServers();
 }
 
 function renderServers(){
@@ -543,19 +616,21 @@ document.getElementById('saveModalBtn').addEventListener('click', ()=>{
   const host = document.getElementById('brokerHost').value.trim();
   const editId = document.getElementById('editId').value;
   if(!label || !host){ alert("Preencha nome e endereço."); return; }
+  let targetId;
   if(editId){
     const b = brokers.find(x=>x.id===editId);
     b.label = label; b.host = host;
+    delete dataCache[editId]; // host pode ter mudado, força nova consulta
+    targetId = editId;
   }else{
     const newB = { id: uid(), label, host };
     brokers.push(newB);
-    activeId = newB.id;
+    targetId = newB.id;
   }
   saveBrokers();
   closeModal();
-  renderNav();
-  buildContentSkeleton();
-  fetchActive();
+  activeId = targetId;
+  setActive(activeId);
 });
 
 // ---- Tema ----
@@ -577,7 +652,7 @@ themeBtn.addEventListener('click', ()=>{
 loadBrokers();
 activeId = brokers[0]?.id || null;
 renderNav();
-if(activeId){ buildContentSkeleton(); fetchActive(); } else { renderEmptyState(); }
+if(activeId){ buildContentSkeleton(); fetchBrokerData(activeId); } else { renderEmptyState(); }
 </script>
 </body>
 </html>
